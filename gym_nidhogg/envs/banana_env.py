@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Simulate Nidhogg.
+Simulate the simplifie Banana selling environment.
+Each episode is selling a single banana.
 """
 
 # core modules
@@ -15,9 +16,17 @@ import numpy as np
 from gym import spaces
 
 
+def get_chance(x):
+    """Get probability that a banana will be sold at price x."""
+    e = math.exp(1)
+    return (1.0 + e) / (1. + math.exp(x + 1))
+
+
 class NidhoggEnv(gym.Env):
     """
-    Define a Nidhogg environment.
+    Define a simple Banana environment.
+    The environment defines which actions can be taken at which point and
+    when the agent receives which reward.
     """
 
     def __init__(self):
@@ -25,38 +34,33 @@ class NidhoggEnv(gym.Env):
         print("NidhoggEnv - Version {}".format(self.__version__))
 
         # General variables defining the environment
-        # self.MAX_PRICE = 2.0
-        # self.TOTAL_TIME_STEPS = 2
+        self.MAX_PRICE = 2.0
+        self.TOTAL_TIME_STEPS = 2
 
-        # self.curr_step = -1
-        # self.is_banana_sold = False
-
-        # # Define what the agent can do
-        # # Sell at 0.00 EUR, 0.10 Euro, ..., 2.00 Euro
-        # self.action_space = spaces.Discrete(21)
-
-        # # Observation is the remaining time
-        # low = np.array([0.0,  # remaining_tries
-        #                 ])
-        # high = np.array([self.TOTAL_TIME_STEPS,  # remaining_tries
-        #                  ])
-        # self.observation_space = spaces.Box(low, high)
-
-        # # Store what the agent tried
-        # self.curr_episode = -1
-        # self.action_episode_memory = []
         self.curr_step = -1
+        self.is_banana_sold = False
+
+        # Define what the agent can do
+        # Sell at 0.00 EUR, 0.10 Euro, ..., 2.00 Euro
+        self.action_space = spaces.Discrete(21)
+
+        # Observation is the remaining time
+        low = np.array([0.0,  # remaining_tries
+                        ])
+        high = np.array([self.TOTAL_TIME_STEPS,  # remaining_tries
+                         ])
+        self.observation_space = spaces.Box(low, high)
+
+        # Store what the agent tried
         self.curr_episode = -1
-        self.won = False
+        self.action_episode_memory = []
 
     def _step(self, action):
         """
         The agent takes a step in the environment.
-
         Parameters
         ----------
         action : int
-
         Returns
         -------
         ob, reward, episode_over, info : tuple
@@ -85,57 +89,50 @@ class NidhoggEnv(gym.Env):
         self._take_action(action)
         reward = self._get_reward()
         ob = self._get_state()
-        return ob, reward, self.won, {}
+        return ob, reward, self.is_banana_sold, {}
 
     def _take_action(self, action):
-        # self.action_episode_memory[self.curr_episode].append(action)
-        # self.price = ((float(self.MAX_PRICE) /
-        #               (self.action_space.n - 1)) * action)
+        self.action_episode_memory[self.curr_episode].append(action)
+        self.price = ((float(self.MAX_PRICE) /
+                      (self.action_space.n - 1)) * action)
 
-        # chance_to_take = get_chance(self.price)
-        # banana_is_sold = (random.random() < chance_to_take)
+        chance_to_take = get_chance(self.price)
+        banana_is_sold = (random.random() < chance_to_take)
 
-        # if banana_is_sold:
-        #     self.is_banana_sold = True
+        if banana_is_sold:
+            self.is_banana_sold = True
 
-        # remaining_steps = self.TOTAL_TIME_STEPS - self.curr_step
-        # time_is_over = (remaining_steps <= 0)
-        # throw_away = time_is_over and not self.is_banana_sold
-        # if throw_away:
-        #     self.is_banana_sold = True  # abuse this a bit
-        #     self.price = 0.0
-        pass # TODO take step
+        remaining_steps = self.TOTAL_TIME_STEPS - self.curr_step
+        time_is_over = (remaining_steps <= 0)
+        throw_away = time_is_over and not self.is_banana_sold
+        if throw_away:
+            self.is_banana_sold = True  # abuse this a bit
+            self.price = 0.0
 
     def _get_reward(self):
         """Reward is given for a sold banana."""
-        # if self.is_banana_sold:
-        #     return self.price - 1
-        # else:
-        #     return 0.
-        return 0.0
+        if self.is_banana_sold:
+            return self.price - 1
+        else:
+            return 0.0
 
     def _reset(self):
         """
         Reset the state of the environment and returns an initial observation.
-
         Returns
         -------
         observation (object): the initial observation of the space.
         """
-        # self.curr_episode += 1
-        # self.action_episode_memory.append([])
-        # self.is_banana_sold = False
-        # self.price = 1.00
-
-        # TODO reset
+        self.curr_episode += 1
+        self.action_episode_memory.append([])
+        self.is_banana_sold = False
+        self.price = 1.00
         return self._get_state()
 
     def _render(self, mode='human', close=False):
-        # TODO render
         return
 
     def _get_state(self):
         """Get the observation."""
-        #ob = [self.TOTAL_TIME_STEPS - self.curr_step]
-        #return ob
-        return [10]  # TODO state observation
+        ob = [self.TOTAL_TIME_STEPS - self.curr_step]
+        return ob
