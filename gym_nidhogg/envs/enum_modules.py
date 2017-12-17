@@ -57,6 +57,7 @@ GetPriorityClass = windll.kernel32.GetPriorityClass
 CloseHandle = windll.kernel32.CloseHandle
 
 def find_base_address(pid, module_name):
+    base_address = None
     try:
         ProcessID=pid
         hModuleSnap = DWORD
@@ -71,7 +72,6 @@ def find_base_address(pid, module_name):
         global PROGMainBase
         PROGMainBase=False
 
-        base_address = None
         while ret:
             if me32.szModule == module_name:
                 base_address = me32.modBaseAddr

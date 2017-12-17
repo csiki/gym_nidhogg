@@ -7,6 +7,7 @@ We need this to do visual tests.
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.ndimage.filters import uniform_filter
  
 import ctypes
 import win32gui
@@ -230,23 +231,76 @@ def convert_nidhogg_screenshot_v1(im, shape):
 
 
 def convert_nidhogg_screenshot_v2(im, shape):
+    # should return image shape that is divisible by 2 as much as possible
+    # like 64x96x3
     image = np.reshape(np.frombuffer(np.array(im), dtype=np.uint8), (600, 800, 3))
     image = image[::4, ::4]
 
     # cut out top for first version
-    top_cut = int(image.shape[0] / 2)
-    bottom_cut = int(image.shape[0] * 0.87)
-    left_cut = 10
-    right_cut = image.shape[1] - 10
+    # at this point: 150x200x3
+    top_cut = 75  # int(image.shape[0] * 0.6)
+    bottom_cut = 130  # int(image.shape[0] * 0.87)
+    left_cut = 4
+    right_cut = image.shape[1] - 4
 
-    return image[top_cut:bottom_cut, left_cut:right_cut]
+    image = image[top_cut:bottom_cut, left_cut:right_cut]
+    #image = image[:, ::2, :]
+
+    # keep only yellow, orange, and white
+    # what is not (255, 255, 0) or (255, 160, 64) or (255, 255, 255) should be black
+    noninteresting = np.bitwise_and(image[:,:] != [255, 255, 0], image[:,:] != [255, 160, 64], image[:,:] != [255, 255, 255])
+    image[np.all(noninteresting, 2)] = [0,0,0]
+
+    # at this point image should be 55x192x3
+    # pad image to have properly divisible dimensions
+    image_w_padding = np.zeros((64, 192, 3), dtype=np.uint8)
+    image_w_padding[64-55:, :] = image
+
+    # transform to float to [0,1]
+    image_w_padding = np.array(image_w_padding, dtype=float) / 255.
+
+    return image_w_padding
+
+
+def convert_nidhogg_screenshot_v3(im, shape):
+    # should return image shape that is divisible by 2 as much as possible
+    # like 64x96x3
+    image = np.reshape(np.frombuffer(np.array(im), dtype=np.uint8), (600, 800, 3))
+    #image = image[::4, ::4]
+    image = uniform_filter(image, size=(4,4,1), mode='constant')  # this added in v3
+    image = image[::4, ::4]
+
+    # cut out top for first version
+    # at this point: 150x200x3
+    top_cut = 75  # int(image.shape[0] * 0.6)
+    bottom_cut = 130  # int(image.shape[0] * 0.87)
+    left_cut = 4
+    right_cut = image.shape[1] - 4
+
+    image = image[top_cut:bottom_cut, left_cut:right_cut]
+    #image = image[:, ::2, :]
+
+    # keep only yellow, orange, and white
+    # what is not (255, 255, 0) or (255, 160, 64) or (255, 255, 255) should be black
+    noninteresting = np.bitwise_and(image[:,:] < [40, 40, 40], image[:,:] != [255, 160, 64], image[:,:] != [255, 255, 255])  # this changed in v3
+    image[np.all(noninteresting, 2)] = [0,0,0]
+
+    # at this point image should be 55x192x3
+    # pad image to have properly divisible dimensions
+    image_w_padding = np.zeros((64, 192, 3), dtype=np.uint8)
+    image_w_padding[64-55:, :] = image
+
+    # transform to float to [0,1]
+    image_w_padding = np.array(image_w_padding, dtype=float) / 255.
+
+    return image_w_padding
 
 
 def who_died_v2(image):
     bottom = image[image.shape[0]-2:]
-    yellow = np.sum(bottom[:,:] == [255, 255, 0])
-    orange = np.sum(bottom[:,:] == [255, 160, 64])
-    if yellow + orange < 30:
+    yellow = np.sum(np.all(bottom[:,:] == [1., 1.,  0], 2))
+    orange = np.sum(np.all(bottom[:,:] == [1., 160/255., 64/255.], 2))  # adjusted for float rgb
+    if yellow + orange < 10:
         return 0
     if orange > yellow:  # orange blood, yellow scores
         return 1
@@ -262,8 +316,14 @@ if __name__ == '__main__':
     # plt.show()
 
     im, shape = fss.shoot()
-    image = convert_nidhogg_screenshot_v2(im, shape)
-    print(who_died_v2(image))
+    image = convert_nidhogg_screenshot_v3(im, shape)
+    who = who_died_v2(image)
+    if who == 1:
+        print('orange blood')
+    elif who == -1:
+        print('yellow blood')
+    else:
+        print('no blood')
     print(image.shape)
     plt.imshow(image)
     plt.show()

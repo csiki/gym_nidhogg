@@ -329,10 +329,67 @@ def keyboard_stream(string):
 
 ################################################################################
 
+# source: https://stackoverflow.com/questions/43417601/using-pyhook-to-detect-key-up-and-down
+
+import pyHook
+
+class PressOrReleaseStates:
+    
+    def __init__(self, key_ids):
+        # state is defined as: [nothing, key0press, key0release, key1press, key1release, ...]
+        # every substate is binary, 0 or 1
+        # if nothing is 1, the others are 0 - meaning nothing happened
+        self.state = [0] * (2 * len(key_ids) + 1)
+        self.state_size = len(self.state)
+
+        # build a map from key ids to states (maps to the keyipress state +1 is the keyirelease)
+        self.keyid_to_state = {key_ids[i]: 1 + 2 * i for i in range(len(key_ids))}
+
+        # key states represents if a certain key is pressed or not
+        self.keyid_to_keystate = {key_ids[i]: 0 for i in range(len(key_ids))}
+
+        self.hm = pyHook.HookManager()
+        self.hm.KeyDown = self.keydown
+        self.hm.KeyUp = self.keyup
+        self.hm.HookKeyboard()
+
+    def keydown(self, event):
+        keyid = event.KeyID
+        if keyid in self.keyid_to_state and self.keyid_to_keystate[keyid] == 0:  # not pressed down already
+            self.keyid_to_keystate[keyid] = 1
+            self.state[self.keyid_to_state[keyid]] = 1
+            #print(self.get_state())
+        return True
+
+    def keyup(self, event):
+        keyid = event.KeyID
+        if keyid in self.keyid_to_state:
+            self.keyid_to_keystate[keyid] = 0
+            self.state[self.keyid_to_state[keyid] + 1] = 1
+            #print(self.get_state())
+        return True
+
+    def get_state(self):
+        if sum(self.state) == 0:
+            self.state[0] = 1  # set nothing
+        tmp = self.state
+        self.reset()
+        return tmp
+
+    def reset(self):
+        self.state = [0] * self.state_size
+
+
+# example = PressOrReleaseStates([KEY_W, KEY_S, KEY_A, KEY_D, KEY_F, KEY_G])
+# use pythoncom.PumpWaitingMessages() --> nonblocking
+
+
+################################################################################
+
 import time, sys
 
 def main():
-    time.sleep(0.5)
+    time.sleep(5)
     for event in keyboard_stream('o2E^uXh#:SHn&HQ+t]YF'):
         SendInput(event)
         time.sleep(0.1)
