@@ -31,14 +31,14 @@ from pprint import pprint
 
 class NidhoggEnv(gym.Env):
     """
-    Define a Nidhogg environment.
-    Only 1 game / machine can be run at a time, as the keyboard input given is global, not /game instance.
+    Defines a Nidhogg environment.
     """
-    EPISODE_MAX_TIME = 10  # sec
-    STEP_DELAY = 0  # 0.05  # sec
-    N_OBSERVATION = 2
-    OBSERVATION_DELAY = 0.005  # sec
-    STEP_TIME = STEP_DELAY + N_OBSERVATION * OBSERVATION_DELAY
+    EPISODE_MAX_TIME = 5.  # sec
+    STEP_DELAY = 0.05  # sec
+    RETROSPECT_TIME = 0.3  # sec
+    N_OBSERVATION = min(10, int(RETROSPECT_TIME/STEP_DELAY))  # size of observation history
+    # OBSERVATION_DELAY = 0.005  # sec
+    STEP_TIME = STEP_DELAY
     EPISODE_MAX_STEPS = EPISODE_MAX_TIME / STEP_TIME
 
     TIME_REWARD_WEIGHT = 0.3
@@ -115,7 +115,7 @@ class NidhoggEnv(gym.Env):
             game_init.press_and_release_key(self.keyboard_inputs[action])
         else:
             self.lazy_count += 1
-            time.sleep(self.STEP_DELAY)
+        time.sleep(self.STEP_DELAY)
 
     def _get_reward(self):
         reward = 0.
@@ -163,12 +163,9 @@ class NidhoggEnv(gym.Env):
         pass  # already rendered
 
     def _get_state(self):
-        for obs in range(self.N_OBSERVATION):
-            im, shape = self.fss.shoot()
-            #self.last_ob = screenshot.convert_nidhogg_screenshot_v2(im, shape)
-            self.ob_bundle[obs] = screenshot.convert_nidhogg_screenshot_v2(im, shape)
-            time.sleep(self.OBSERVATION_DELAY)
-
-        self.last_ob = self.ob_bundle[-1]
+        # shoot, roll, assign, return
+        im, shape = self.fss.shoot()
+        self.last_ob = screenshot.convert_nidhogg_screenshot_v2(im, shape)
+        self.ob_bundle = np.roll(self.ob_bundle, -1, 0)
+        self.ob_bundle[-1] = self.last_ob
         return self.ob_bundle
-        #return np.reshape(self.last_ob, (self.N_OBSERVATION, self.last_ob.shape[0], self.last_ob.shape[1], self.last_ob.shape[2]))
